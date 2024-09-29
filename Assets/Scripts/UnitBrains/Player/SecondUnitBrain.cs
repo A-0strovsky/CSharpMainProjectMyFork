@@ -7,21 +7,33 @@ namespace UnitBrains.Player
     public class SecondUnitBrain : DefaultPlayerUnitBrain
     {
         public override string TargetUnitName => "Cobra Commando";
-        private const float OverheatTemperature = 3f;
-        private const float OverheatCooldown = 2f;
+        private const float OverheatTemperature = 3f; // макс тем 
+        private const float OverheatCooldown = 2f; // время восстановления перегрева 
         private float _temperature = 0f;
-        private float _cooldownTime = 0f;
-        private bool _overheated;
+        private float _cooldownTime = 0f; // время простоя при охл
+        private bool _overheated; // перегретый 
         
         protected override void GenerateProjectiles(Vector2Int forTarget, List<BaseProjectile> intoList)
         {
-            float overheatTemperature = OverheatTemperature;
+            float overheatTemperature = OverheatTemperature; // макс темп // ниже условие по ДЗ 
             ///////////////////////////////////////
-            // Homework 1.3 (1st block, 3rd module)
-            ///////////////////////////////////////           
-            var projectile = CreateProjectile(forTarget);
-            AddProjectileToList(projectile, intoList);
-            ///////////////////////////////////////
+            GetTemperature();
+            
+            if (GetTemperature() <= overheatTemperature)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    var projectile = CreateProjectile(forTarget);
+                    AddProjectileToList(projectile, intoList);
+                }
+            }
+            else
+            {
+                return;
+            }
+
+            IncreaseTemperature();
+            /////////////////
         }
 
         public override Vector2Int GetNextStep()
@@ -58,13 +70,13 @@ namespace UnitBrains.Player
             }
         }
 
-        private int GetTemperature()
+        private int GetTemperature() // метод получения температуры 
         {
             if(_overheated) return (int) OverheatTemperature;
             else return (int)_temperature;
         }
 
-        private void IncreaseTemperature()
+        private void IncreaseTemperature() // увелечение температуры 
         {
             _temperature += 1f;
             if (_temperature >= OverheatTemperature) _overheated = true;
