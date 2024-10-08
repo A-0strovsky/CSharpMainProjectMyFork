@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Data;
 using Model.Runtime.Projectiles;
 using UnityEngine;
 
@@ -41,33 +42,30 @@ namespace UnitBrains.Player
 
         protected override List<Vector2Int> SelectTargets()
         {
-            List<Vector2Int> result = GetReachableTargets(); 
+            List<Vector2Int> targets = base.SelectTargets();
+            List<Vector2Int> result = new List<Vector2Int>();
 
             float minDistance = float.MaxValue;
+            Vector2Int closestTarget = Vector2Int.zero; 
 
-            foreach (var target in result)
+            foreach (var target in targets)
             {
-                var targetDistance = DistanceToOwnBase(target);
-                if (targetDistance < minDistance)
+                float distance = DistanceToOwnBase(target);
+                if (distance < minDistance)
                 {
-                    minDistance = targetDistance;
+                    minDistance = distance;
+                    closestTarget = target; 
                 }
-                else
-                {
-                    result.Clear();
-                    return result;
-                }
-                Debug.Log("target:" + target);
             }
 
-            minDistance = result.Count;
-
-            while (result.Count > 1)
+            if (minDistance < float.MaxValue)
             {
-                result.RemoveAt(result.Count - 1);
+                result.Clear(); 
+                result.Add(closestTarget); 
             }
-            return result;
-        }
+
+            return result; 
+    }
 
         public override void Update(float deltaTime, float time)
         {
@@ -84,13 +82,13 @@ namespace UnitBrains.Player
             }
         }
 
-        private int GetTemperature() // метод получения температуры 
+        private int GetTemperature() 
         {
             if(_overheated) return (int) OverheatTemperature;
             else return (int)_temperature;
         }
 
-        private void IncreaseTemperature() // увелечение температуры 
+        private void IncreaseTemperature() 
         {
             _temperature += 1f;
             if (_temperature >= OverheatTemperature) _overheated = true;
