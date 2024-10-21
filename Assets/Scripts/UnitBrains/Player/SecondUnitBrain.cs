@@ -1,7 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Data;
+using GluonGui.Dialog;
 using Model.Runtime.Projectiles;
 using UnityEngine;
+using UnityEngine.UIElements;
+using Utilities;
+using static UnityEngine.GraphicsBuffer;
 
 namespace UnitBrains.Player
 {
@@ -12,8 +16,14 @@ namespace UnitBrains.Player
         private const float OverheatCooldown = 2f; 
         private float _temperature = 0f;
         private float _cooldownTime = 0f; 
-        private bool _overheated; 
-        
+        private bool _overheated;
+
+        List<Vector2Int> outsideTarget = new List<Vector2Int>(); // Новое поле для целей вне зоны досягаемости, но которые ближе к базе, к ним и идем
+        Vector2Int closesTarget = Vector2Int.zero;  // данная переменная будет хранить ближайшую цель //условеый pos
+        List<Vector2Int> result = new List<Vector2Int>();
+
+
+
         protected override void GenerateProjectiles(Vector2Int forTarget, List<BaseProjectile> intoList)
         {
             float overheatTemperature = OverheatTemperature; 
@@ -35,39 +45,47 @@ namespace UnitBrains.Player
             IncreaseTemperature();
         }
 
-        public override Vector2Int GetNextStep()
+        public override Vector2Int GetNextStep() //Этот метод возвращает следующий шаг агента. Однако, в данном случае метод просто вызывает метод GetNextStep из базового класса и возвращает его результат.
         {
-            return base.GetNextStep();
+            Vector2Int targetPosition;
+            targetPosition = result.Count > 0 ? result[0] : unit.Pos;
+            return IsTargetInRange(targetPosition) ? unit.Pos : unit.Pos.CalcNextStepTowards(targetPosition);
+            //return base.GetNextStep();
         }
 
-        protected override List<Vector2Int> SelectTargets()
+        protected override List<Vector2Int> SelectTargets()//------------------------------------------------------------------
         {
-            List<Vector2Int> targets = base.SelectTargets();
-            List<Vector2Int> result = new List<Vector2Int>();
+            //------
+            var allTargets = GetAllTargets();// получаем данные по всем целям через метод 
 
-            float minDistance = float.MaxValue;
-            Vector2Int closestTarget = Vector2Int.zero; 
+            float minDistance = float.MaxValue; //смотрим ближайшую цель за счет расчета максимального расстояния 
 
-            foreach (var target in targets)
+            foreach (Vector2Int target in allTargets)
             {
-                float distance = DistanceToOwnBase(target);
-                if (distance < minDistance)
+                float distance = DistanceToOwnBase(target); // проверяем ближайшую цель к базе и записываем ее как самую опасную 
+                if (distance < minDistance) // если расстояние больше мин
                 {
                     minDistance = distance;
-                    closestTarget = target; 
+                    closesTarget = target;
                 }
             }
 
-            if (minDistance < float.MaxValue)
+            if (minDistance < float.MaxValue) // После завершения цикла проверяется, было ли найдено хотя бы одно расстояние (т.е. minDistance все еще меньше максимального значения float.MaxValue).
             {
-                result.Clear(); 
-                result.Add(closestTarget); 
+                result.Clear();  // Если да, то список result очищается, и в него добавляется ближайшая цель (closesTarget).
+                result.Add(closesTarget); 
+            }
+            else
+            {
+                outsideTarget.Add(closesTarget); // если цель в не зоне видимости, то целью будут враги, которые ближе к базе
             }
 
-            return result; 
-    }
+            return result; // возвращаем значение. 
 
-        public override void Update(float deltaTime, float time)
+
+    }//-------------------------------------------------------------------------------------------------------------------------------
+
+        public override void Update(float deltaTime, float time) // Этот метод обновляет состояние агента в зависимости от времени.
         {
             if (_overheated)
             {              
