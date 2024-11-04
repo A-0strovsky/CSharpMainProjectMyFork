@@ -1,9 +1,6 @@
 ﻿using System.Collections.Generic;
-using Codice.Client.Common.GameUI;
-using Model;
 using Model.Runtime.Projectiles;
 using UnityEngine;
-using static UnityEngine.GraphicsBuffer;
 
 namespace UnitBrains.Player
 {
@@ -15,96 +12,67 @@ namespace UnitBrains.Player
         private float _temperature = 0f;
         private float _cooldownTime = 0f;
         private bool _overheated;
-        private List<Vector2Int> dangerousTarget = new List<Vector2Int>();
 
+        private static int unitCounter = 0; // Приватное статическое поле 
+        private int unitNumber; // Приватное поле номера юнита
+        private const int MaxTargetsToConsider = 3; // Приватная константа для макс. кол-ва целей
+
+        public SecondUnitBrain()
+        {
+            unitNumber = ++unitCounter;
+        }
 
         protected override void GenerateProjectiles(Vector2Int forTarget, List<BaseProjectile> intoList)
         {
-            float overheatTemperature = OverheatTemperature;
-
-            float _temperature = GetTemperature();
-
-            if (_temperature >= overheatTemperature)
+            int currentTemperature = GetTemperature();
+            if (currentTemperature >= (int)OverheatTemperature)
             {
                 return;
             }
-
-            if (_temperature == 0)
-            {
-                var projectile = CreateProjectile(forTarget);
-                AddProjectileToList(projectile, intoList);
-            }
-
-            for (int i = 1; i <= _temperature; i++)
-            {
-                var projectile = CreateProjectile(forTarget);
-                AddProjectileToList(projectile, intoList);
-            }
-
             IncreaseTemperature();
+            int projectileCount = currentTemperature + 1;
+            for (int i = 0; i < projectileCount; i++)
+            {
+                var projectile = CreateProjectile(forTarget);
+                AddProjectileToList(projectile, intoList);
+            }
         }
 
         public override Vector2Int GetNextStep()
         {
-            if (dangerousTarget == null)
-            {
-                return Vector2Int.zero;
-            }
             return base.GetNextStep();
         }
 
         protected override List<Vector2Int> SelectTargets()
         {
-
-            float minTarget = float.MaxValue;
-            Vector2Int closestTarget = new Vector2Int();
-
-            List<Vector2Int> result = new List<Vector2Int>();
-
-
-            IEnumerable<Vector2Int> allTargets = GetAllTargets();
-
-            if (allTargets == null)
-            {
-                result.Clear();
-                result[0] = runtimeModel.RoMap.Bases[IsPlayerUnitBrain ? RuntimeModel.BotPlayerId : RuntimeModel.PlayerId];
-                Debug.Log(result);
-            }
-
-            foreach (var target in allTargets)
+            List<Vector2Int> result = GetReachableTargets();
+            if (result.Count > 0)
             {
 
-                float distance = DistanceToOwnBase(target);
-                if (distance < minTarget)
+                SortByDistanceToOwnBase(result);
+
+                if (result.Count > MaxTargetsToConsider)
                 {
-                    minTarget = distance;
-                    closestTarget = target;
-                    dangerousTarget.Clear();
-
+                    result = result.GetRange(0, MaxTargetsToConsider);
                 }
-            }
 
-            if (!IsTargetInRange(closestTarget))
-            {
-                return new List<Vector2Int>();
-            }
 
-            if (minTarget != float.MaxValue)
-            {
-                dangerousTarget.Add(closestTarget);
-                result.Add(closestTarget);
-                return result;
+                int targetIndex = (unitNumber - 1) % result.Count;
+                Vector2Int target = result[targetIndex];
 
+
+                result.Clear();
+                result.Add(target);
             }
-            result.Clear();
-            return new List<Vector2Int>();
+            return result;
         }
+
         public override void Update(float deltaTime, float time)
         {
             if (_overheated)
             {
-                _cooldownTime += Time.deltaTime;
-                float t = _cooldownTime / (OverheatCooldown / 10);
+                _cooldownTime += deltaTime;
+                float t = _cooldownTime / OverheatCooldown;
                 _temperature = Mathf.Lerp(OverheatTemperature, 0, t);
                 if (t >= 1)
                 {
@@ -116,14 +84,21 @@ namespace UnitBrains.Player
 
         private int GetTemperature()
         {
-            if (_overheated) return (int)OverheatTemperature;
-            else return (int)_temperature;
+            return _overheated ? (int)OverheatTemperature : (int)_temperature;
         }
 
         private void IncreaseTemperature()
         {
             _temperature += 1f;
-            if (_temperature >= OverheatTemperature) _overheated = true;
+            if (_temperature >= OverheatTemperature)
+            {
+                _overheated = true;
+            }
+        }
+
+        private void SortByDistanceToOwnBase(List<Vector2Int> targets)
+        {
+            targets.Sort((a, b) => DistanceToOwnBase(a).CompareTo(DistanceToOwnBase(b)));
         }
     }
 }
